@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from bottle import run, get, request, response, route, post,template,static_file
+from bottle import ServerAdapter,route,server_names,run, get, request, response, route, post,template,static_file
+from socket import gethostname
 import urllib2, urllib
 import hashlib
 import os
@@ -8,14 +9,32 @@ import json
 import time
 import sys
 import shutil
-sys.path.append("..")
-from meanSerpentForestSRC import src
+#sys.path.append("..")
+#from meanSerpentForestSRC import src
 
 CLIENT_ID     = "1022856304800-ph8iuqc3rra0s7iac6ln81m083dcuvdv.apps.googleusercontent.com"
 CLIENT_SECRET = "P1juZRvd3EkQUz-hX9nkAJa6"
 REDIRECT_URI  = "http://mifulo.dacya.ucm.es/token"
 DISCOVERY_DOC = "https://accounts.google.com/.well-known/openid-configuration"
 TOKEN_VALIDATION_ENDPOINT = "https://www.googleapis.com/oauth2/v4/token"
+
+
+class SSLWebServer(ServerAdapter):
+    def run (self,handler):
+        from cherrypy import wsgiserver
+        from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
+        server=wsgiserver.CherryPyWSGIServer((self.host,self.port),handler)
+
+        server.ssl_adapter = pyOpenSSLAdapter(
+            certificate="/etc/letsencrypt/live/mifulo.dacya.ucm.es/cert.pem",
+            private_key="privkey.pem",
+            certificate_chain="fullchain.pem"
+        )
+        try:
+            server.start()
+        except:
+            server.stop()
+
 
 @post('/uploader')
 def uploader():
@@ -90,4 +109,6 @@ def serve_static(filepath):
     return static_file(filepath,root='../archivos')
 
 if __name__ == "__main__":
-    run(host='147.96.80.194',port=80,debug=False)
+    server_names['sslwebserver'] = SSLWebServer
+
+    run(host=gethostname(), port=8080, server='sslwebserver')
